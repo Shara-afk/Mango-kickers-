@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Mango Kickers</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10140f;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#fff}
+body{touch-action:none}
+#app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(#172014,#0d110c)}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.screen.active{display:flex}
+.logo{font-size:clamp(42px,12vw,76px);font-weight:900;letter-spacing:-3px;text-align:center;text-shadow:0 6px 0 #26351d}
+.logo span{color:#ffd83d}
+.subtitle{opacity:.7;margin:0 0 28px}
+.menu{width:min(360px,88vw);display:grid;gap:12px}
+button{border:0;border-radius:16px;padding:16px 18px;font-size:18px;font-weight:800;color:#172014;background:#ffd83d;box-shadow:0 5px 0 #a98d16}
+button:active{transform:translateY(3px);box-shadow:0 2px 0 #a98d16}
+.secondary{background:#e8eee2;box-shadow:0 5px 0 #9ba594}
+.card{width:min(430px,92vw);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:20px;backdrop-filter:blur(10px)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:10px 0}
+h2{margin:0 0 16px}
+.small{font-size:13px;opacity:.65}
+#hud{position:absolute;top:calc(12px + env(safe-area-inset-top));left:12px;right:12px;z-index:5;display:none;justify-content:space-between;align-items:flex-start;pointer-events:none}
+.pill{background:rgba(10,15,9,.72);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:9px 12px;backdrop-filter:blur(8px)}
+.xpwrap{width:130px}.xpbar{height:7px;background:#343d31;border-radius:99px;overflow:hidden;margin-top:5px}.xpfill{height:100%;width:0;background:#ffd83d}
+#game{position:absolute;inset:0;display:none;background:#4d9a42}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+#controls{position:absolute;inset:auto 0 0 0;height:190px;display:none;z-index:6;pointer-events:none}
+.joystick{position:absolute;left:25px;bottom:25px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.16);pointer-events:auto}
+.stick{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(255,216,61,.9)}
+.kick{position:absolute;right:28px;bottom:35px;width:112px;height:112px;border-radius:50%;font-size:20px;pointer-events:auto}
+#goalMsg{position:absolute;top:36%;left:0;right:0;text-align:center;font-size:52px;font-weight:1000;display:none;text-shadow:0 5px 0 rgba(0,0,0,.3);z-index:8}
+#pauseBtn{position:absolute;right:12px;top:calc(74px + env(safe-area-inset-top));z-index:7;display:none;padding:10px 13px;font-size:15px}
+.shopgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.item{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:13px}
+.item button{width:100%;margin-top:8px;padding:10px;font-size:14px}
+.swatch{height:58px;border-radius:12px;margin-bottom:9px}
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="menu" class="screen active">
+    <div class="logo">🥭 MANGO<br><span>KICKERS</span></div>
+    <p class="subtitle">Kick. Score. Level up.</p>
+    <div class="card">
+      <div class="row"><b>🪙 Монеты</b><b id="menuCoins">0</b></div>
+      <div class="row"><b>⭐ Уровень</b><b id="menuLevel">1</b></div>
+      <div class="menu">
+        <button onclick="startGame()">СТАРТ</button>
+        <button class="secondary" onclick="show('shop')">МАГАЗИН</button>
+        <button class="secondary" onclick="show('settings')">НАСТРОЙКИ</button>
+        <button class="secondary" onclick="show('interface')">ИНТЕРФЕЙС</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="settings" class="screen">
+    <div class="card"><h2>⚙️ Настройки</h2>
+      <div class="row"><span>Звук</span><button class="secondary" id="soundBtn" onclick="toggleSound()">ВКЛ</button></div>
+      <div class="row"><span>Вибрация</span><button class="secondary" id="vibeBtn" onclick="toggleVibe()">ВКЛ</button></div>
+      <button class="secondary" onclick="show('menu')">НАЗАД</button>
+    </div>
+  </section>
+
+  <section id="interface" class="screen">
+    <div class="card"><h2>🎛️ Интерфейс</h2>
+      <p class="small">Во время матча сверху отображаются монеты, уровень и XP. Управление — виртуальный джойстик и кнопка KICK.</p>
+      <button class="secondary" onclick="show('menu')">НАЗАД</button>
+    </div>
+  </section>
+
+  <section id="shop" class="screen">
+    <div class="card"><h2>🛒 Магазин</h2>
+      <div class="row"><b>🪙 Баланс</b><b id="shopCoins">0</b></div>
+      <h3>Скины</h3><div class="shopgrid" id="skins"></div>
+      <h3>Карты</h3><div class="shopgrid" id="maps"></div>
+      <br><button class="secondary" onclick="show('menu')">НАЗАД</button>
+    </div>
+  </section>
+
+  <div id="game">
+    <canvas id="field"></canvas>
+    <div id="hud">
+      <div class="pill">🪙 <b id="coins">0</b></div>
+      <div class="pill xpwrap"><b id="level">LEVEL 1</b><div class="xpbar"><div id="xpfill" class="xpfill"></div></div><div class="small" id="xp">0 / 100 XP</div></div>
+    </div>
+    <button id="pauseBtn" onclick="togglePause()">Ⅱ</button>
+    <div id="goalMsg">🥭 GOOOAL!</div>
+    <div id="controls">
+      <div id="joy" class="joystick"><div id="stick" class="stick"></div></div>
+      <button class="kick" onclick="kick()">KICK ⚽</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = JSON.parse(localStorage.getItem('mk_state')||'null') || {
+ coins:0,level:1,xp:0,skin:'Basic',map:'Basic',ownedSkins:['Basic'],ownedMaps:['Basic'],sound:true,vibe:true
+};
+const skins=[
+ {id:'Basic',price:0,emoji:'🥭',css:'linear-gradient(135deg,#f0b429,#8f5715)'},
+ {id:'Mango',price:250,emoji:'🥭',css:'linear-gradient(135deg,#ffd83d,#ff6b22)'},
+ {id:'Neon',price:750,emoji:'🟢',css:'linear-gradient(135deg,#55ffb0,#7255ff)'},
+ {id:'Golden',price:2000,emoji:'👑',css:'linear-gradient(135deg,#fff5a1,#d49716)'}
+];
+const maps=[
+ {id:'Basic',price:0,css:'#4d9a42'},
+ {id:'Tropical',price:500,css:'#2f9d67'},
+ {id:'Night',price:1000,css:'#182b4c'},
+ {id:'Neon',price:2500,css:'#32185a'}
+];
+function save(){localStorage.setItem('mk_state',JSON.stringify(state));updateAll()}
+function show(id){
+ document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+ document.getElementById(id).classList.add('active'); updateAll();
+}
+function updateAll(){
+ menuCoins.textContent=state.coins; menuLevel.textContent=state.level; shopCoins.textContent=state.coins;
+ soundBtn.textContent=state.sound?'ВКЛ':'ВЫКЛ'; vibeBtn.textContent=state.vibe?'ВКЛ':'ВЫКЛ';
+ renderShop();
+}
+function xpNeed(){return Math.min(5000,100+(state.level-1)*50)}
+function addXP(n){
+ if(state.level>=100)return;
+ state.xp+=n;
+ while(state.level<100 && state.xp>=xpNeed()){state.xp-=xpNeed();state.level++;state.coins+=50}
+ save();
+}
+function buy(type,id){
+ const arr=type==='skin'?skins:maps, owned=type==='skin'?state.ownedSkins:state.ownedMaps;
+ const item=arr.find(x=>x.id===id);
+ if(owned.includes(id)){state[type==='skin'?'skin':'map']=id;save();return}
+ if(state.coins<item.price){alert('Не хватает монет');return}
+ state.coins-=item.price;owned.push(id);state[type==='skin'?'skin':'map']=id;save();
+}
+function renderShop(){
+ skinsEl=document.getElementById('skins'); mapsEl=document.getElementById('maps');
+ skinsEl.innerHTML=skins.map(x=>`<div class="item"><div class="swatch" style="background:${x.css}"></div><b>${x.emoji} ${x.id}</b><div class="small">${state.ownedSkins.includes(x.id)?'Открыт':'🪙 '+x.price}</div><button onclick="buy('skin','${x.id}')">${state.skin===x.id?'ВЫБРАН':state.ownedSkins.includes(x.id)?'ВЫБРАТЬ':'КУПИТЬ'}</button></div>`).join('');
+ mapsEl.innerHTML=maps.map(x=>`<div class="item"><div class="swatch" style="background:${x.css}"></div><b>🗺️ ${x.id}</b><div class="small">${state.ownedMaps.includes(x.id)?'Открыта':'🪙 '+x.price}</div><button onclick="buy('map','${x.id}')">${state.map===x.id?'ВЫБРАНА':state.ownedMaps.includes(x.id)?'ВЫБРАТЬ':'КУПИТЬ'}</button></div>`).join('');
+}
+function toggleSound(){state.sound=!state.sound;save()}
+function toggleVibe(){state.vibe=!state.vibe;save()}
+let canvas,ctx,W,H,player,ball,goal,anim,paused=false;
+const keys={x:0,y:0};
+function startGame(){
+ document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+ game.style.display='block'; hud.style.display='flex'; controls.style.display='block'; pauseBtn.style.display='block';
+ canvas=document.getElementById('field');ctx=canvas.getContext('2d');resize();
+ resetMatch(); cancelAnimationFrame(anim); loop();
+}
+function resize(){W=canvas.width=innerWidth*devicePixelRatio;H=canvas.height=innerHeight*devicePixelRatio;canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);W=innerWidth;H=innerHeight}
+addEventListener('resize',resize);
+function resetMatch(){
+ player={x:W/2,y:H*0.73,r:23,vx:0,vy:0};
+ ball={x:W/2,y:H*0.53,r:13,vx:0,vy:0};
+ goal={x:W/2-90,y:H*0.13,w:180,h:22};
+ paused=false;updateHUD();
+}
+function updateHUD(){
+ coins.textContent=state.coins;level.textContent='LEVEL '+state.level;xp.textContent=`${state.xp} / ${xpNeed()} XP`;xpfill.style.width=(state.level>=100?100:state.xp/xpNeed()*100)+'%';
+}
+function kick(){
+ if(paused)return;
+ const dx=ball.x-player.x,dy=ball.y-player.y,d=Math.hypot(dx,dy);
+ if(d<90){
+  let a=Math.atan2(dy,dx);
+  ball.vx=Math.cos(a)*9;ball.vy=Math.sin(a)*9-2;
+  addXP(5);
+  if(state.vibe&&navigator.vibrate)navigator.vibrate(30);
+ }
+}
+function score(){
+ state.coins+=25;addXP(50);save();goalMsg.style.display='block';
+ if(state.vibe&&navigator.vibrate)navigator.vibrate([50,40,80]);
+ setTimeout(()=>goalMsg.style.display='none',900);
+ setTimeout(resetMatch,650);
+}
+function loop(){
+ anim=requestAnimationFrame(loop);if(paused)return;
+ ctx.clearRect(0,0,W,H);
+ const map=maps.find(x=>x.id===state.map)||maps[0];
+ ctx.fillStyle=map.css;ctx.fillRect(0,0,W,H);
+ drawField(); updatePhysics(); drawBall(); drawPlayer(); updateHUD();
+}
+function drawField(){
+ ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=3;ctx.strokeRect(18,18,W-36,H-36);
+ ctx.beginPath();ctx.moveTo(18,H/2);ctx.lineTo(W-18,H/2);ctx.stroke();
+ ctx.beginPath();ctx.arc(W/2,H/2,70,0,Math.PI*2);ctx.stroke();
+ ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(goal.x,goal.y,goal.w,goal.h);
+ ctx.strokeStyle='white';ctx.strokeRect(goal.x,goal.y,goal.w,goal.h);
+}
+function updatePhysics(){
+ player.vx += keys.x*.7;player.vy += keys.y*.7;
+ const sp=Math.hypot(player.vx,player.vy);if(sp>5){player.vx*=.82;player.vy*=.82}
+ player.x+=player.vx;player.y+=player.vy;
+ player.x=Math.max(40,Math.min(W-40,player.x));player.y=Math.max(70,Math.min(H-40,player.y));
+ ball.x+=ball.vx;ball.y+=ball.vy;ball.vx*=.985;ball.vy*=.985;
+ if(ball.x<32||ball.x>W-32)ball.vx*=-.82;
+ if(ball.y<32)ball.vy*=-.82;if(ball.y>H-32)ball.vy*=-.82;
+ const dx=ball.x-player.x,dy=ball.y-player.y,d=Math.hypot(dx,dy),min=player.r+ball.r;
+ if(d<min){let nx=dx/(d||1),ny=dy/(d||1);ball.x=player.x+nx*min;ball.y=player.y+ny*min;ball.vx+=nx*1.2+player.vx*.4;ball.vy+=ny*1.2+player.vy*.4}
+ if(ball.x>goal.x&&ball.x<goal.x+goal.w&&ball.y<goal.y+goal.h+10)score();
+}
+function drawPlayer(){
+ const s=skins.find(x=>x.id===state.skin)||skins[0];
+ ctx.fillStyle='#111';ctx.beginPath();ctx.arc(player.x+3,player.y+5,player.r,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle=s.id==='Basic'?'#d88a25':s.id==='Mango'?'#ff7b22':s.id==='Neon'?'#62ffb8':'#ffd83d';
+ ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(player.x-7,player.y-5,4,0,Math.PI*2);ctx.arc(player.x+7,player.y-5,4,0,Math.PI*2);ctx.fill();
+}
+function drawBall(){
+ ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#222';ctx.lineWidth=2;ctx.stroke();
+ ctx.fillStyle='#222';ctx.beginPath();ctx.arc(ball.x,ball.y,4,0,Math.PI*2);ctx.fill();
+}
+function togglePause(){paused=!paused;pauseBtn.textContent=paused?'▶':'Ⅱ'}
+document.addEventListener('keydown',e=>{
+ if(e.key===' ')kick();
+ if(e.key==='Escape')togglePause();
+ if(e.key.toLowerCase()==='r')resetMatch();
+});
+let joyActive=false;
+joy.addEventListener('pointerdown',e=>{joyActive=true;joy.setPointerCapture(e.pointerId);moveJoy(e)});
+joy.addEventListener('pointermove',e=>{if(joyActive)moveJoy(e)});
+joy.addEventListener('pointerup',joyEnd);joy.addEventListener('pointercancel',joyEnd);
+function moveJoy(e){
+ const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+ let dx=e.clientX-cx,dy=e.clientY-cy,len=Math.hypot(dx,dy),max=40;if(len>max){dx=dx/len*max;dy=dy/len*max}
+ stick.style.transform=`translate(${dx}px,${dy}px)`;keys.x=dx/max;keys.y=dy/max;
+}
+function joyEnd(){joyActive=false;stick.style.transform='translate(0,0)';keys.x=keys.y=0}
+updateAll();
+</script>
+</body>
+</html>
